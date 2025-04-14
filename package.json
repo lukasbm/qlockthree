@@ -1,0 +1,24 @@
+{
+  "name": "qlockthree",
+  "version": "1.0.0",
+  "description": "definitely not a DIY qlocktwo knockoff",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lukasbm/qlockthree.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lukasbm/qlockthree/issues"
+  },
+  "homepage": "https://github.com/lukasbm/qlockthree#readme",
+  "dependencies": {
+    "@jscad/cli": "^2.3.5",
+    "jscad-now": "^1.2.3"
+  }
+}
