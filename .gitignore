@@ -171,3 +171,8 @@ dist
 *.png
 *.jpg
 *.stl
+
+
+# FreeCAD
+*.FCBak
+
