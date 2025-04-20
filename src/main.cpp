@@ -151,10 +151,10 @@ void setGridTime(uint8_t hour, uint8_t minute)
   // reset
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
-  setMinuteHand(minute);
-
+  uint8_t rest = minute % 5;
+  setMinuteHand(rest);
   // modify minute for easy handling
-  minute = minute - (minute % 5);
+  minute = minute - rest;
 
   /*
   10:00 = ES IST ZEHN UHR
@@ -322,4 +322,9 @@ void setText(Pattern pattern)
   {
     leds[i] = pattern.color;
   }
+}
+
+// minute between 0 and 4
+void setMinuteHand(uint8_t leds)
+{
 }
