@@ -3,7 +3,7 @@
 #include <RTClib.h>
 #include <OneButton.h>
 
-#define PIN 4 // Data pin connected to D4
+#define STRIP_DATA_PIN 4 // Data pin connected to D4
 #define COLOR_ORDER GRB
 #define BRIGHTNESS_DAY 45 // 0-255
 #define BRIGHTNESS_NIGHT 5
@@ -12,13 +12,16 @@
 // FIXME: #define NUM_LEDS (COLS * ROWS)
 #define NUM_LEDS 12
 #define BTN_PIN 5
+// 4 corner LEDs wired to a ~300 ohm resistor
+#define LED_1 PIN_A1
+#define LED_2 PIN_A2
+#define LED_3 PIN_A3
+#define LED_4 PIN_A4
 
 // use: https://fastled.io/docs/df/da2/group__lib8tion.html
 
 // WS2812B strip
 CRGB leds[NUM_LEDS];
-
-// 4 corner LEDs wired to a ~300 ohm resistor
 
 // control button
 OneButton button;
@@ -113,9 +116,16 @@ void setup()
 {
   Serial.begin(9600);
 
-  FastLED.addLeds<WS2812B, PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  // set up LED strip
+  FastLED.addLeds<WS2812B, STRIP_DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setMaxPowerInMilliWatts(3500);
   // show_at_max_brightness_for_power(); // automatically determines brightness (based on power setting)
+
+  // set up LEDs
+  pinMode(LED_1, OUTPUT);
+  pinMode(LED_2, OUTPUT);
+  pinMode(LED_3, OUTPUT);
+  pinMode(LED_4, OUTPUT);
 
   rtc.begin(DateTime(2025, 1, 1, 0, 0, 0));
   // check if there was a power loss since last rtc use
@@ -365,7 +375,39 @@ void setText(Pattern pattern)
 // minute between 0 and 4
 void setMinuteHand(uint8_t leds)
 {
-  // TODO: enable the 4 LEDS
+  switch (leds)
+  {
+  case 1:
+    digitalWrite(LED_1, HIGH);
+    digitalWrite(LED_2, LOW);
+    digitalWrite(LED_3, LOW);
+    digitalWrite(LED_4, LOW);
+    break;
+  case 2:
+    digitalWrite(LED_1, LOW);
+    digitalWrite(LED_2, HIGH);
+    digitalWrite(LED_3, LOW);
+    digitalWrite(LED_4, LOW);
+    break;
+  case 3:
+    digitalWrite(LED_1, LOW);
+    digitalWrite(LED_2, LOW);
+    digitalWrite(LED_3, HIGH);
+    digitalWrite(LED_4, LOW);
+    break;
+  case 4:
+    digitalWrite(LED_1, LOW);
+    digitalWrite(LED_2, LOW);
+    digitalWrite(LED_3, LOW);
+    digitalWrite(LED_4, HIGH);
+    break;
+  default:
+    digitalWrite(LED_1, LOW);
+    digitalWrite(LED_2, LOW);
+    digitalWrite(LED_3, LOW);
+    digitalWrite(LED_4, LOW);
+    break;
+  }
 }
 
 void setGridError(Error err)
