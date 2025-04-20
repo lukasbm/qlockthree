@@ -1,82 +1,114 @@
 #include <Arduino.h>
+#include <FastLED.h>
+#include <RTClib.h>
 
-#define PIN 4  // Data pin connected to D4
+#define PIN 4 // Data pin connected to D4
 #define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
-#define BRIGHTNESS_DAY 45  // 0-255
+#define BRIGHTNESS_DAY 45 // 0-255
 #define BRIGHTNESS_NIGHT 5
 #define COLS 11
 #define ROWS 10
 // FIXME: #define NUM_LEDS (COLS * ROWS)
 #define NUM_LEDS 12
 
-
 // use: https://fastled.io/docs/df/da2/group__lib8tion.html
 
 CRGB leds[NUM_LEDS];
 
-// RTC_DS32131 rtc;  // TODO: use when component is here
-RTC_Millis rtc;  // use for now
+// RTC_DS3231 rtc;  // TODO: use when RTC component is here
+RTC_Millis rtc; // use for now
+
+struct Pattern
+{
+  uint8_t start;
+  uint8_t length;
+  CRGB color;
+
+  // need constructor for constexpr
+  constexpr Pattern() : start(0), length(0), color(CRGB::Black) {}
+  constexpr Pattern(uint8_t s, uint8_t l, CRGB c) : start(s), length(l), color(c) {}
+};
 
 // forward declarations
 void setGridTime(uint8_t, uint8_t);
 bool isNight();
 void setRTCtime(uint8_t, uint8_t);
-void setGridError(uint8_t);
-void setText(uint8_t, uint8_t);
+void setText(Pattern);
 void setMinuteHand(uint8_t);
 
-// TODO: would be safer to just save start index and length!
-TEXT_ES;
-TEXT_IST;
-TEXT_FUENF;
-TEXT_ZEHN;
-TEXT_ZWANZIG;
-TEXT_DREI;
-TEXT_VIERTEL;
-TEXT_VOR;
-TEXT_NACH;
-TEXT_HALB;
-TEXT_1;
-TEXT_2;
-TEXT_3;
-TEXT_4;
-TEXT_5;
-TEXT_6;
-TEXT_7;
-TEXT_8;
-TEXT_9;
-TEXT_10;
-TEXT_11;
-TEXT_12;
-TEXT_UHR;
+// led index (row, column)
+constexpr uint8_t ledIndex(uint8_t r, uint8_t c)
+{
+  return (r & 1) ? (r * COLS + (COLS - 1 - c)) : (r * COLS + c);
+}
 
+constexpr Pattern fromLine(uint8_t start_row, uint8_t start_column, uint8_t size, CRGB color)
+{
+  // uint8_t start_index = (start_row & 1) ? (start_row * COLS + (COLS - 1 - start_column)) : (start_row * COLS + start_column);
+  // return Pattern{start_index, size, color};
+  return (start_row & 1)
+             ? Pattern{ledIndex(start_row, start_column), size, color}         // forward (even row)
+             : Pattern{ledIndex(start_row, start_column) - size, size, color}; // backward (odd row)
+}
 
+// intro text
+const Pattern TEXT_ES = fromLine(0, 0, 2, CRGB::White);
+const Pattern TEXT_IST = fromLine(0, 3, 3, CRGB::White);
+const Pattern TEXT_FUENF = fromLine(0, 7, 4, CRGB::White);
+const Pattern TEXT_ZEHN = fromLine(1, 0, 4, CRGB::White);
+const Pattern TEXT_ZWANZIG = fromLine(1, 4, 7, CRGB::White);
+const Pattern TEXT_DREI = fromLine(2, 0, 4, CRGB::White);
+const Pattern TEXT_VIERTEL = fromLine(2, 4, 7, CRGB::White);
+const Pattern TEXT_VOR = fromLine(3, 0, 3, CRGB::White);
+const Pattern TEXT_NACH = fromLine(3, 7, 4, CRGB::White);
+const Pattern TEXT_HALB = fromLine(4, 0, 4, CRGB::White);
+const Pattern TEXT_UHR = fromLine(9, 8, 3, CRGB::White);
+// hours
+const Pattern TEXT_1 = fromLine(5, 0, 4, CRGB::White);
+const Pattern TEXT_2 = fromLine(5, 7, 4, CRGB::White);
+const Pattern TEXT_3 = fromLine(6, 0, 4, CRGB::White);
+const Pattern TEXT_4 = fromLine(6, 7, 4, CRGB::White);
+const Pattern TEXT_5 = fromLine(4, 7, 4, CRGB::White);
+const Pattern TEXT_6 = fromLine(7, 0, 5, CRGB::White);
+const Pattern TEXT_7 = fromLine(8, 0, 6, CRGB::White);
+const Pattern TEXT_8 = fromLine(7, 7, 4, CRGB::White);
+const Pattern TEXT_9 = fromLine(9, 3, 4, CRGB::White);
+const Pattern TEXT_10 = fromLine(9, 0, 4, CRGB::White);
+const Pattern TEXT_11 = fromLine(4, 5, 3, CRGB::White);
+const Pattern TEXT_12 = fromLine(8, 6, 5, CRGB::White);
+// errors
+const Pattern TEXT_ERROR = fromLine(3, 3, 3, CRGB::Red);
+const Pattern TEXT_ERROR_1 = fromLine(4, 1, 1, CRGB::Red); // a letter A
+const Pattern TEXT_ERROR_2 = fromLine(4, 3, 1, CRGB::Red); // a letter B
+const Pattern TEXT_ERROR_3 = fromLine(7, 2, 1, CRGB::Red); // a letter C
 
-void setup() {
+void setup()
+{
   FastLED.addLeds<LED_TYPE, PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setMaxPowerInMilliWatts(3500);
   // show_at_max_brightness_for_power(); // automatically determines brightness (based on power setting)
 
-  if (!rtc.begin()) {
-    Serial.println("Couldn't find RTC");
-    Serial.flush();
-    setGridError();
-  }
+  rtc.begin(DateTime(2025, 1, 1, 0, 0, 0));
 
   // check if there was a power loss since last rtc use
-  if (rtc.lostPower()) {
-    Serial.println("RTC lost power, let's set the time!");
-  }
+  // if (rtc.lostPower())
+  // {
+  //   Serial.println("RTC lost power, let's set the time!");
+  // }
 
-  if (isNight()) {
+  if (isNight())
+  {
     FastLED.setBrightness(BRIGHTNESS_NIGHT);
-  } else {
+  }
+  else
+  {
     FastLED.setBrightness(BRIGHTNESS_DAY);
   }
 }
 
-void loop() {
+void loop()
+{
   // TODO: check for button press
 
   // Simple animation: Red color sweep
@@ -89,34 +121,33 @@ void loop() {
 
   DateTime now = rtc.now();
 
-  if (now.second() == 0) {
-    setGridTime(now.hour(), now.minute())
+  if (now.second() == 0)
+  {
+    setGridTime(now.hour(), now.minute());
   }
 
   // call 10x a second to make sure we dont miss the minute increase
   delay(100);
 }
 
-
-
-bool isNight() {
+bool isNight()
+{
   DateTime now = rtc.now();
-  if (now.hours() < 7 || now.hours() > 21) {
+  if (now.hour() < 7 || now.hour() > 21)
+  {
     return true;
-  } else {
-    return false;
   }
+  return false;
 }
 
-
-void setRTCtime(uint8_t hour, uint8_t minute) {
+void setRTCtime(uint8_t hour, uint8_t minute)
+{
   // date and seconds are not relevant
   rtc.adjust(DateTime(2025, 1, 1, hour, minute, 0));
 }
 
-
-
-void setGridTime(uint8_t hour, uint8_t minute) {
+void setGridTime(uint8_t hour, uint8_t minute)
+{
   // reset
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
@@ -134,159 +165,161 @@ void setGridTime(uint8_t hour, uint8_t minute) {
   10:25 = ES IST FÜNF VOR HALB ELF
   10:30 = ES IST HALB ELF
   10:35 = ES IST FÜNF NACH HALB ELF
-  10:40 = ES IST ZWANZIG	VOR ELF 
+  10:40 = ES IST ZWANZIG	VOR ELF
   10:45 = ES IST DREIVIERTEL ELF
   10:50 = ES IST ZEHN VOR ELF
   10:55 = ES IST FÜNF VOR ELF
   */
-  Pattern currHour;
-  Pattern nextHour;
+  Pattern currHour, nextHour;
 
-  switch (hour) {
-    case 0:
-    case 12:
-      currHour = TEXT_12;
-      nextHour = TEXT_1;
-      break;
+  switch (hour)
+  {
+  case 0:
+  case 12:
+    currHour = TEXT_12;
+    nextHour = TEXT_1;
+    break;
 
-    case 1:
-    case 13:
-      currHour = TEXT_1;
-      nextHour = TEXT_2;
-      break;
+  case 1:
+  case 13:
+    currHour = TEXT_1;
+    nextHour = TEXT_2;
+    break;
 
-    case 2:
-    case 14:
-      currHour = TEXT_2;
-      nextHour = TEXT_3;
-      break;
+  case 2:
+  case 14:
+    currHour = TEXT_2;
+    nextHour = TEXT_3;
+    break;
 
-    case 3:
-    case 15:
-      currHour = TEXT_3;
-      nextHour = TEXT_4;
-      break;
+  case 3:
+  case 15:
+    currHour = TEXT_3;
+    nextHour = TEXT_4;
+    break;
 
-    case 4:
-    case 16:
-      currHour = TEXT_4;
-      nextHour = TEXT_5;
-      break;
+  case 4:
+  case 16:
+    currHour = TEXT_4;
+    nextHour = TEXT_5;
+    break;
 
-    case 5:
-    case 17:
-      currHour = TEXT_5;
-      nextHour = TEXT_6;
-      break;
+  case 5:
+  case 17:
+    currHour = TEXT_5;
+    nextHour = TEXT_6;
+    break;
 
-    case 6:
-    case 18:
-      currHour = TEXT_6;
-      nextHour = TEXT_7;
-      break;
+  case 6:
+  case 18:
+    currHour = TEXT_6;
+    nextHour = TEXT_7;
+    break;
 
-    case 7:
-    case 19:
-      currHour = TEXT_7;
-      nextHour = TEXT_8;
-      break;
+  case 7:
+  case 19:
+    currHour = TEXT_7;
+    nextHour = TEXT_8;
+    break;
 
-    case 8:
-    case 20:
-      currHour = TEXT_8;
-      nextHour = TEXT_9;
-      break;
+  case 8:
+  case 20:
+    currHour = TEXT_8;
+    nextHour = TEXT_9;
+    break;
 
-    case 9:
-    case 21:
-      currHour = TEXT_9;
-      nextHour = TEXT_10;
-      break;
+  case 9:
+  case 21:
+    currHour = TEXT_9;
+    nextHour = TEXT_10;
+    break;
 
-    case 10:
-    case 22:
-      currHour = TEXT_10;
-      nextHour = TEXT_11;
-      break;
+  case 10:
+  case 22:
+    currHour = TEXT_10;
+    nextHour = TEXT_11;
+    break;
 
-    case 11:
-    case 23:
-      currHour = TEXT_11;
-      nextHour = TEXT_12;
-      break;
+  case 11:
+  case 23:
+    currHour = TEXT_11;
+    nextHour = TEXT_12;
+    break;
   }
 
   setText(TEXT_ES);
   setText(TEXT_IST);
 
-  switch (minute) {
-    case 0:
-      setText(currHour);
-      setText(TEXT_UHR);
-      break;
-    case 5:
-      setText(TEXT_FUENF);
-      setText(TEXT_NACH);
-      setText(currHour);
-      break;
-    case 10:
-      setText(TEXT_ZEHN);
-      setText(TEXT_NACH);
-      setText(currHour);
-      break;
-    case 15:
-      setText(TEXT_VIERTEL);
-      setText(nextHour);
-      break;
-    case 20:
-      setText(TEXT_ZWANZIG);
-      setText(TEXT_NACH);
-      setText(currHour);
-      break;
-    case 25:
-      setText(TEXT_FUENF);
-      setText(TEXT_VOR);
-      setText(TEXT_HALB);
-      setText(nextHour);
-      break;
-    case 30:
-      setText(TEXT_HALB);
-      setText(nextHour);
-      break;
-    case 35:
-      setText(TEXT_FUENF);
-      setText(TEXT_NACH);
-      setText(TEXT_HALB);
-      setText(nextHour);
-      break;
-    case 40:
-      setText(TEXT_ZWANZIG);
-      setText(TEXT_VOR);
-      setText(nextHour);
-      break;
-    case 45:
-      setText(TEXT_DREI);
-      setText(TEXT_VIERTEL);
-      setText(nextHour);
-      break;
-    case 50:
-      setText(TEXT_ZEHN);
-      setText(TEXT_VOR);
-      setText(nextHour);
-      break;
-    case 55:
-      setText(TEXT_FUENF);
-      setText(TEXT_VOR);
-      setText(nextHour);
+  switch (minute)
+  {
+  case 0:
+    setText(currHour);
+    setText(TEXT_UHR);
+    break;
+  case 5:
+    setText(TEXT_FUENF);
+    setText(TEXT_NACH);
+    setText(currHour);
+    break;
+  case 10:
+    setText(TEXT_ZEHN);
+    setText(TEXT_NACH);
+    setText(currHour);
+    break;
+  case 15:
+    setText(TEXT_VIERTEL);
+    setText(nextHour);
+    break;
+  case 20:
+    setText(TEXT_ZWANZIG);
+    setText(TEXT_NACH);
+    setText(currHour);
+    break;
+  case 25:
+    setText(TEXT_FUENF);
+    setText(TEXT_VOR);
+    setText(TEXT_HALB);
+    setText(nextHour);
+    break;
+  case 30:
+    setText(TEXT_HALB);
+    setText(nextHour);
+    break;
+  case 35:
+    setText(TEXT_FUENF);
+    setText(TEXT_NACH);
+    setText(TEXT_HALB);
+    setText(nextHour);
+    break;
+  case 40:
+    setText(TEXT_ZWANZIG);
+    setText(TEXT_VOR);
+    setText(nextHour);
+    break;
+  case 45:
+    setText(TEXT_DREI);
+    setText(TEXT_VIERTEL);
+    setText(nextHour);
+    break;
+  case 50:
+    setText(TEXT_ZEHN);
+    setText(TEXT_VOR);
+    setText(nextHour);
+    break;
+  case 55:
+    setText(TEXT_FUENF);
+    setText(TEXT_VOR);
+    setText(nextHour);
   }
 
   // update leds
   FastLED.show();
 }
 
-void setText(uint8_t start, uint8_t length) {
-  // FIXME: this needs to also respect the serpentine pattern!!!
-  for (uint8_t i = start; i < length; i++) {
-    leds[i] = CRGB::White;
+void setText(Pattern pattern)
+{
+  for (uint8_t i = pattern.start; i < pattern.length; i++)
+  {
+    leds[i] = pattern.color;
   }
 }
