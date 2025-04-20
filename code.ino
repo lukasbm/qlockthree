@@ -1,12 +1,27 @@
+#include <FastLED.h>
 
-// led index(row, col)
+#define NUM_LEDS 12
+#define PIN 4  // Data pin connected to D4
+#define COLOR_ORDER GRB
 
-uint8_t ledIndex(uint8_t row, uint8_t col) {
-  if (y & 1) {  // same as y % 2 == 1 but faster
-    // odd rows run backwards
-    return (row * COLS) + (COLS - 1 - col);
-  } else {
-    // even rows run forwards
-    return (row * COLS) + col;
-  }
+CRGB leds[NUM_LEDS];
+
+void setup() {
+  FastLED.addLeds<WS2812B, PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setMaxPowerInMilliWatts(3500);
+  // show_at_max_brightness_for_power(); // automatically determines brightness (based on power setting)
+
+  // check if there was a power loss since last rtc use
+  // if (rtc.lostPower())
+  // {
+  //   Serial.println("RTC lost power, let's set the time!");
+  // }
+
+  FastLED.setBrightness(50);
+  fill_solid(leds, NUM_LEDS, CRGB::Green);
+  delay(3000);
+  FastLED.show();
+}
+
+void loop() {
 }

@@ -3,7 +3,6 @@
 #include <RTClib.h>
 
 #define PIN 4 // Data pin connected to D4
-#define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
 #define BRIGHTNESS_DAY 45 // 0-255
 #define BRIGHTNESS_NIGHT 5
@@ -30,9 +29,15 @@ struct Pattern
   constexpr Pattern(uint8_t s, uint8_t l, CRGB c) : start(s), length(l), color(c) {}
 };
 
+enum Error
+{
+  RTC_ERROR
+};
+
 // forward declarations
 void setGridTime(uint8_t, uint8_t);
-bool isNight();
+void setGridError(Error);
+bool isNight(DateTime);
 void setRTCtime(uint8_t, uint8_t);
 void setText(Pattern);
 void setMinuteHand(uint8_t);
@@ -85,19 +90,28 @@ const Pattern TEXT_ERROR_3 = fromLine(7, 2, 1, CRGB::Red); // a letter C
 
 void setup()
 {
-  FastLED.addLeds<LED_TYPE, PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.addLeds<WS2812B, PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setMaxPowerInMilliWatts(3500);
   // show_at_max_brightness_for_power(); // automatically determines brightness (based on power setting)
 
   rtc.begin(DateTime(2025, 1, 1, 0, 0, 0));
-
   // check if there was a power loss since last rtc use
   // if (rtc.lostPower())
   // {
   //   Serial.println("RTC lost power, let's set the time!");
   // }
 
-  if (isNight())
+  FastLED.setBrightness(BRIGHTNESS_DAY);
+  fill_solid(leds, NUM_LEDS, CRGB::Blue);
+  FastLED.show();
+  delay(5000);
+}
+
+void loop()
+{
+  DateTime now = rtc.now();
+
+  if (isNight(now))
   {
     FastLED.setBrightness(BRIGHTNESS_NIGHT);
   }
@@ -105,22 +119,10 @@ void setup()
   {
     FastLED.setBrightness(BRIGHTNESS_DAY);
   }
-}
 
-void loop()
-{
   // TODO: check for button press
 
-  // Simple animation: Red color sweep
-  // for (int i = 0; i < NUM_LEDS; i++) {
-  //   leds[i] = CRGB::White;  // Red color
-  //   FastLED.show();
-  //   delay(50);
-  //   leds[i] = CRGB::Black;  // Turn off the LED (in the next iteration)
-  // }
-
-  DateTime now = rtc.now();
-
+  // update time
   if (now.second() == 0)
   {
     setGridTime(now.hour(), now.minute());
@@ -130,10 +132,9 @@ void loop()
   delay(100);
 }
 
-bool isNight()
+bool isNight(DateTime time)
 {
-  DateTime now = rtc.now();
-  if (now.hour() < 7 || now.hour() > 21)
+  if (time.hour() < 7 || time.hour() > 21)
   {
     return true;
   }
@@ -327,4 +328,20 @@ void setText(Pattern pattern)
 // minute between 0 and 4
 void setMinuteHand(uint8_t leds)
 {
+}
+
+void setGridError(Error err)
+{
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+
+  setText(TEXT_ERROR);
+
+  switch (err)
+  {
+  case RTC_ERROR:
+    setText(TEXT_ERROR_1);
+    break;
+  }
+
+  FastLED.show();
 }
