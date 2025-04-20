@@ -1,5 +1,17 @@
 {
     "files.associations": {
         "new": "cpp"
-    }
+    },
+    "cSpell.words": [
+        "DREI",
+        "DREIVIERTEL",
+        "FUENF",
+        "FÜNF",
+        "HALB",
+        "NACH",
+        "VIERTEL",
+        "ZEHN",
+        "ZWANZIG"
+    ],
+    "C_Cpp.errorSquiggles": "disabled"
 }

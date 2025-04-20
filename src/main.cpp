@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <FastLED.h>
 #include <RTClib.h>
+#include <OneButton.h>
 
 #define PIN 4 // Data pin connected to D4
 #define COLOR_ORDER GRB
@@ -10,10 +11,17 @@
 #define ROWS 10
 // FIXME: #define NUM_LEDS (COLS * ROWS)
 #define NUM_LEDS 12
+#define BTN_PIN 5
 
 // use: https://fastled.io/docs/df/da2/group__lib8tion.html
 
+// WS2812B strip
 CRGB leds[NUM_LEDS];
+
+// 4 corner LEDs wired to a ~300 ohm resistor
+
+// control button
+OneButton button;
 
 // RTC_DS3231 rtc;  // TODO: use when RTC component is here
 RTC_Millis rtc; // use for now
@@ -41,6 +49,19 @@ bool isNight(DateTime);
 void setRTCtime(uint8_t, uint8_t);
 void setText(Pattern);
 void setMinuteHand(uint8_t);
+
+void buttonSingleClick()
+{
+  // TODO: increase by a minute
+}
+void buttonDoubleClick()
+{
+  // TODO: increase by an hour
+}
+void buttonLongPress()
+{
+  // TODO: seek through: 5m per tick
+}
 
 // led index (row, column)
 constexpr uint8_t ledIndex(uint8_t r, uint8_t c)
@@ -90,6 +111,8 @@ const Pattern TEXT_ERROR_3 = fromLine(7, 2, 1, CRGB::Red); // a letter C
 
 void setup()
 {
+  Serial.begin(9600);
+
   FastLED.addLeds<WS2812B, PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setMaxPowerInMilliWatts(3500);
   // show_at_max_brightness_for_power(); // automatically determines brightness (based on power setting)
@@ -101,6 +124,18 @@ void setup()
   //   Serial.println("RTC lost power, let's set the time!");
   // }
 
+  // setup button
+  button.setup(
+      BTN_PIN,      // Input pin for the button
+      INPUT_PULLUP, // INPUT and enable the internal pull-up resistor
+      true          // Button is active LOW
+  );
+  button.attachClick(buttonSingleClick);
+  button.attachDoubleClick(buttonDoubleClick);
+  button.attachDuringLongPress(buttonLongPress);
+  button.setLongPressIntervalMs(200); // frequency to fire long press function if long press is detected
+
+  // "startup animation"
   FastLED.setBrightness(BRIGHTNESS_DAY);
   fill_solid(leds, NUM_LEDS, CRGB::Blue);
   FastLED.show();
@@ -109,6 +144,8 @@ void setup()
 
 void loop()
 {
+  button.tick();
+
   DateTime now = rtc.now();
 
   if (isNight(now))
@@ -128,8 +165,8 @@ void loop()
     setGridTime(now.hour(), now.minute());
   }
 
-  // call 10x a second to make sure we dont miss the minute increase
-  delay(100);
+  // call multiple times a second to make sure we dont miss the minute increase
+  delay(50);
 }
 
 bool isNight(DateTime time)
@@ -161,8 +198,8 @@ void setGridTime(uint8_t hour, uint8_t minute)
   10:00 = ES IST ZEHN UHR
   10:05 = ES IST FÜNF NACH ZEHN
   10:10 = ES IST ZEHN NACH ZEHN
-  10:15 = ES IST VIERTEL	ELF
-  10:20 = ES IST ZWANZIG	NACH ZEHN
+  10:15 = ES IST VIERTEL ELF
+  10:20 = ES IST ZWANZIG NACH ZEHN
   10:25 = ES IST FÜNF VOR HALB ELF
   10:30 = ES IST HALB ELF
   10:35 = ES IST FÜNF NACH HALB ELF
@@ -328,14 +365,16 @@ void setText(Pattern pattern)
 // minute between 0 and 4
 void setMinuteHand(uint8_t leds)
 {
+  // TODO: enable the 4 LEDS
 }
 
 void setGridError(Error err)
 {
+  // clear
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
+  // set
   setText(TEXT_ERROR);
-
   switch (err)
   {
   case RTC_ERROR:
@@ -343,5 +382,6 @@ void setGridError(Error err)
     break;
   }
 
+  // update
   FastLED.show();
 }
