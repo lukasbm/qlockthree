@@ -1,6 +1,5 @@
 #include <FastLED.h>
 #include <RTClib.h>
-#include "FastLED.h"
 
 #define PIN 4  // Data pin connected to D4
 #define LED_TYPE WS2812B
