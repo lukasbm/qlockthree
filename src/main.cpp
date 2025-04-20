@@ -145,6 +145,8 @@ void setup()
   button.attachDuringLongPress(buttonLongPress);
   button.setLongPressIntervalMs(200); // frequency to fire long press function if long press is detected
 
+  Serial.println("Setup Complete");
+
   // "startup animation"
   FastLED.setBrightness(BRIGHTNESS_DAY);
   fill_solid(leds, NUM_LEDS, CRGB::Blue);
@@ -196,6 +198,11 @@ void setRTCtime(uint8_t hour, uint8_t minute)
 
 void setGridTime(uint8_t hour, uint8_t minute)
 {
+  Serial.print("Setting time: ");
+  Serial.print(hour);
+  Serial.print(":");
+  Serial.println(minute);
+
   // reset
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
@@ -412,6 +419,9 @@ void setMinuteHand(uint8_t leds)
 
 void setGridError(Error err)
 {
+  Serial.print("Setting error: ");
+  Serial.println(err);
+
   // clear
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
