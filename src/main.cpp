@@ -3,20 +3,19 @@
 #include <RTClib.h>
 #include <OneButton.h>
 
-#define STRIP_DATA_PIN 4 // Data pin connected to D4
+#define STRIP_DATA_PIN 12
 #define COLOR_ORDER GRB
 #define BRIGHTNESS_DAY 45 // 0-255
 #define BRIGHTNESS_NIGHT 5
-#define COLS 11
-#define ROWS 10
-// FIXME: #define NUM_LEDS (COLS * ROWS)
-#define NUM_LEDS 12
-#define BTN_PIN 5
+#define COLS 12
+#define ROWS 1
+#define NUM_LEDS (COLS * ROWS)
+#define BTN_PIN 9
 // 4 corner LEDs wired to a ~300 ohm resistor
-#define LED_1 PIN_A1
-#define LED_2 PIN_A2
-#define LED_3 PIN_A3
-#define LED_4 PIN_A4
+#define LED_1 5
+#define LED_2 6
+#define LED_3 7
+#define LED_4 8
 
 // use: https://fastled.io/docs/df/da2/group__lib8tion.html
 
