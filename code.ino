@@ -1,7 +1,7 @@
 #include <FastLED.h>
 
-#define NUM_LEDS 12
-#define PIN 4  // Data pin connected to D4
+#define NUM_LEDS 11*10
+#define PIN 12  // Data pin connected to D4
 #define COLOR_ORDER GRB
 
 CRGB leds[NUM_LEDS];

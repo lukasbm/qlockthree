@@ -7,15 +7,15 @@
 #define COLOR_ORDER GRB
 #define BRIGHTNESS_DAY 45 // 0-255
 #define BRIGHTNESS_NIGHT 5
-#define COLS 12
-#define ROWS 1
+#define COLS 11
+#define ROWS 10
 #define NUM_LEDS (COLS * ROWS)
-#define BTN_PIN 9
+#define BTN_PIN 3
 // 4 corner LEDs wired to a ~300 ohm resistor
-#define LED_1 5
-#define LED_2 6
-#define LED_3 7
-#define LED_4 8
+#define LED_1 4
+#define LED_2 5
+#define LED_3 6
+#define LED_4 7
 
 // use: https://fastled.io/docs/df/da2/group__lib8tion.html
 
@@ -54,14 +54,17 @@ void setMinuteHand(uint8_t);
 
 void buttonSingleClick()
 {
+  Serial.println("Button - Single click");
   // TODO: increase by a minute
 }
 void buttonDoubleClick()
 {
+  Serial.println("Button - Double click");
   // TODO: increase by an hour
 }
 void buttonLongPress()
 {
+  Serial.println("Button - Long press");
   // TODO: seek through: 5m per tick
 }
 
@@ -114,6 +117,7 @@ const Pattern TEXT_ERROR_3 = fromLine(7, 2, 1, CRGB::Red); // a letter C
 void setup()
 {
   Serial.begin(9600);
+  Serial.println("Starting up...");
 
   // set up LED strip
   FastLED.addLeds<WS2812B, STRIP_DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
@@ -167,8 +171,6 @@ void loop()
   {
     FastLED.setBrightness(BRIGHTNESS_DAY);
   }
-
-  // TODO: check for button press
 
   // update time
   if (now.second() == 0)
