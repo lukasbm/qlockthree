@@ -34,6 +34,16 @@ struct Pattern
   // need constructor for constexpr
   constexpr Pattern() : start(0), length(0), color(CRGB::Black) {}
   constexpr Pattern(uint8_t s, uint8_t l, CRGB c) : start(s), length(l), color(c) {}
+
+  void print()
+  {
+    Serial.print("Pattern: ");
+    Serial.print(start);
+    Serial.print(", ");
+    Serial.print(length);
+    Serial.print(", ");
+    Serial.println(color.r);
+  }
 };
 
 enum Error
@@ -51,17 +61,26 @@ void setText(Pattern);
 void buttonSingleClick()
 {
   Serial.println("Button - Single click");
-  // TODO: increase by a minute
+  // increase by a minute
+  DateTime now = rtc.now();
+  DateTime next = now + TimeSpan(0, 0, 1, 0);
+  setRTCtime(next.hour(), next.minute());
 }
 void buttonDoubleClick()
 {
   Serial.println("Button - Double click");
-  // TODO: increase by an hour
+  // increase by an hour
+  DateTime now = rtc.now();
+  DateTime next = now + TimeSpan(0, 1, 0, 0);
+  setRTCtime(next.hour(), next.minute());
 }
 void buttonLongPress()
 {
   Serial.println("Button - Long press");
-  // TODO: seek through: 5m per tick
+  // seek through: 5m per tick
+  DateTime now = rtc.now();
+  DateTime next = now + TimeSpan(0, 0, 5, 0);
+  setRTCtime(next.hour(), next.minute());
 }
 
 // led index (row, column)
@@ -141,7 +160,7 @@ void setup()
 
   // setup button
   button.setup(
-      BTN_PIN,      // Input pin for the button
+      BTN_PIN,     // Input pin for the button
       INPUT_PULLUP // INPUT and enable the internal pull-up resistor
   );
   button.attachClick(buttonSingleClick);
@@ -154,6 +173,9 @@ void setup()
   // "startup animation"
   FastLED.setBrightness(BRIGHTNESS_DAY);
   fill_solid(leds, NUM_LEDS, CRGB::Blue);
+  FastLED.show();
+  delay(1000);
+  fill_rainbow(leds, NUM_LEDS, 0, 255 / NUM_LEDS);
   FastLED.show();
   delay(1000);
 
@@ -223,6 +245,11 @@ void setGridTime(uint8_t hour, uint8_t minute)
   // modify minute for easy handling
   uint8_t rest = minute % 5;
   minute = minute - rest; // round to 5
+  
+  Serial.print("Rounded minute: ");
+  Serial.println(minute);
+  Serial.print("Rest: ");
+  Serial.println(rest);
 
   /*
   10:00 = ES IST ZEHN UHR
@@ -314,6 +341,10 @@ void setGridTime(uint8_t hour, uint8_t minute)
     nextHour = TEXT_12;
     break;
   }
+
+  // inspect
+  currHour.print();
+  nextHour.print();
 
   setText(TEXT_ES);
   setText(TEXT_IST);
