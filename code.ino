@@ -1,6 +1,6 @@
 #include <FastLED.h>
 
-#define NUM_LEDS 11*10
+#define NUM_LEDS (11*10+4)
 #define PIN 12  // Data pin connected to D4
 #define COLOR_ORDER GRB
 
@@ -11,15 +11,8 @@ void setup() {
   FastLED.setMaxPowerInMilliWatts(3500);
   // show_at_max_brightness_for_power(); // automatically determines brightness (based on power setting)
 
-  // check if there was a power loss since last rtc use
-  // if (rtc.lostPower())
-  // {
-  //   Serial.println("RTC lost power, let's set the time!");
-  // }
-
-  FastLED.setBrightness(50);
+  FastLED.setBrightness(50); // 0-255?
   fill_solid(leds, NUM_LEDS, CRGB::Green);
-  delay(3000);
   FastLED.show();
 }
 

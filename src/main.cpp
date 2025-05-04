@@ -2,6 +2,7 @@
 #include <FastLED.h>
 #include <RTClib.h>
 #include <OneButton.h>
+#include <Wire.h>
 
 #define STRIP_DATA_PIN 12
 #define COLOR_ORDER GRB
@@ -9,13 +10,8 @@
 #define BRIGHTNESS_NIGHT 5
 #define COLS 11
 #define ROWS 10
-#define NUM_LEDS (COLS * ROWS)
-#define BTN_PIN 3
-// 4 corner LEDs wired to a ~300 ohm resistor
-#define LED_1 4
-#define LED_2 5
-#define LED_3 6
-#define LED_4 7
+#define NUM_LEDS (COLS * ROWS + 4)
+#define BTN_PIN 11
 
 // use: https://fastled.io/docs/df/da2/group__lib8tion.html
 
@@ -25,8 +21,9 @@ CRGB leds[NUM_LEDS];
 // control button
 OneButton button;
 
-// RTC_DS3231 rtc;  // TODO: use when RTC component is here
-RTC_Millis rtc; // use for now
+RTC_DS3231 rtc;
+
+bool currMinUpdated = false;
 
 struct Pattern
 {
@@ -50,7 +47,6 @@ void setGridError(Error);
 bool isNight(DateTime);
 void setRTCtime(uint8_t, uint8_t);
 void setText(Pattern);
-void setMinuteHand(uint8_t);
 
 void buttonSingleClick()
 {
@@ -76,8 +72,6 @@ constexpr uint8_t ledIndex(uint8_t r, uint8_t c)
 
 constexpr Pattern fromLine(uint8_t start_row, uint8_t start_column, uint8_t size, CRGB color)
 {
-  // uint8_t start_index = (start_row & 1) ? (start_row * COLS + (COLS - 1 - start_column)) : (start_row * COLS + start_column);
-  // return Pattern{start_index, size, color};
   return (start_row & 1)
              ? Pattern{ledIndex(start_row, start_column), size, color}         // forward (even row)
              : Pattern{ledIndex(start_row, start_column) - size, size, color}; // backward (odd row)
@@ -113,10 +107,17 @@ const Pattern TEXT_ERROR = fromLine(3, 3, 3, CRGB::Red);
 const Pattern TEXT_ERROR_1 = fromLine(4, 1, 1, CRGB::Red); // a letter A
 const Pattern TEXT_ERROR_2 = fromLine(4, 3, 1, CRGB::Red); // a letter B
 const Pattern TEXT_ERROR_3 = fromLine(7, 2, 1, CRGB::Red); // a letter C
+// minutes
+const Pattern MINUTE_1 = fromLine(10, 0, 1, CRGB::White);
+const Pattern MINUTE_2 = fromLine(10, 1, 1, CRGB::White);
+const Pattern MINUTE_3 = fromLine(10, 2, 1, CRGB::White);
+const Pattern MINUTE_4 = fromLine(10, 3, 1, CRGB::White);
 
 void setup()
 {
   Serial.begin(9600);
+  Wire.begin();
+
   Serial.println("Starting up...");
 
   // set up LED strip
@@ -124,29 +125,29 @@ void setup()
   FastLED.setMaxPowerInMilliWatts(3500);
   // show_at_max_brightness_for_power(); // automatically determines brightness (based on power setting)
 
-  // set up LEDs
-  pinMode(LED_1, OUTPUT);
-  pinMode(LED_2, OUTPUT);
-  pinMode(LED_3, OUTPUT);
-  pinMode(LED_4, OUTPUT);
-
-  rtc.begin(DateTime(2025, 1, 1, 0, 0, 0));
+  if (!rtc.begin(&Wire))
+  {
+    Serial.println("Couldn't find DS3231 RTC");
+    setGridError(RTC_ERROR);
+    // halt program
+    while (1)
+      delay(1000);
+  }
   // check if there was a power loss since last rtc use
-  // if (rtc.lostPower())
-  // {
-  //   Serial.println("RTC lost power, let's set the time!");
-  // }
+  if (rtc.lostPower())
+  {
+    Serial.println("RTC lost power, let's set the time!");
+  }
 
   // setup button
   button.setup(
       BTN_PIN,      // Input pin for the button
-      INPUT_PULLUP, // INPUT and enable the internal pull-up resistor
-      true          // Button is active LOW
+      INPUT_PULLUP // INPUT and enable the internal pull-up resistor
   );
   button.attachClick(buttonSingleClick);
   button.attachDoubleClick(buttonDoubleClick);
   button.attachDuringLongPress(buttonLongPress);
-  button.setLongPressIntervalMs(200); // frequency to fire long press function if long press is detected
+  button.setLongPressIntervalMs(500); // frequency to fire long press function if long press is detected
 
   Serial.println("Setup Complete");
 
@@ -154,15 +155,21 @@ void setup()
   FastLED.setBrightness(BRIGHTNESS_DAY);
   fill_solid(leds, NUM_LEDS, CRGB::Blue);
   FastLED.show();
-  delay(5000);
+  delay(1000);
+
+  DateTime now = rtc.now();
+  setGridTime(now.hour(), now.minute());
 }
 
 void loop()
 {
+  // update buttons
   button.tick();
 
+  // fetch current time from RTC module
   DateTime now = rtc.now();
 
+  // adjust night light if needed
   if (isNight(now))
   {
     FastLED.setBrightness(BRIGHTNESS_NIGHT);
@@ -173,13 +180,18 @@ void loop()
   }
 
   // update time
-  if (now.second() == 0)
+  if (now.second() == 0 && !currMinUpdated)
   {
     setGridTime(now.hour(), now.minute());
+    currMinUpdated = true;
+  }
+  else
+  {
+    currMinUpdated = false;
   }
 
   // call multiple times a second to make sure we dont miss the minute increase
-  delay(50);
+  delay(10);
 }
 
 bool isNight(DateTime time)
@@ -195,6 +207,7 @@ void setRTCtime(uint8_t hour, uint8_t minute)
 {
   // date and seconds are not relevant
   rtc.adjust(DateTime(2025, 1, 1, hour, minute, 0));
+  currMinUpdated = false;
 }
 
 void setGridTime(uint8_t hour, uint8_t minute)
@@ -207,10 +220,9 @@ void setGridTime(uint8_t hour, uint8_t minute)
   // reset
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
-  uint8_t rest = minute % 5;
-  setMinuteHand(rest);
   // modify minute for easy handling
-  minute = minute - rest;
+  uint8_t rest = minute % 5;
+  minute = minute - rest; // round to 5
 
   /*
   10:00 = ES IST ZEHN UHR
@@ -226,8 +238,8 @@ void setGridTime(uint8_t hour, uint8_t minute)
   10:50 = ES IST ZEHN VOR ELF
   10:55 = ES IST FÜNF VOR ELF
   */
-  Pattern currHour, nextHour;
 
+  Pattern currHour, nextHour;
   switch (hour)
   {
   case 0:
@@ -368,6 +380,29 @@ void setGridTime(uint8_t hour, uint8_t minute)
     setText(nextHour);
   }
 
+  // set minute hand
+  switch (rest)
+  {
+  case 1:
+    setText(MINUTE_1);
+    break;
+  case 2:
+    setText(MINUTE_1);
+    setText(MINUTE_2);
+    break;
+  case 3:
+    setText(MINUTE_1);
+    setText(MINUTE_2);
+    setText(MINUTE_3);
+    break;
+  case 4:
+    setText(MINUTE_1);
+    setText(MINUTE_2);
+    setText(MINUTE_3);
+    setText(MINUTE_4);
+    break;
+  }
+
   // update leds
   FastLED.show();
 }
@@ -377,44 +412,6 @@ void setText(Pattern pattern)
   for (uint8_t i = pattern.start; i < pattern.length; i++)
   {
     leds[i] = pattern.color;
-  }
-}
-
-// minute between 0 and 4
-void setMinuteHand(uint8_t leds)
-{
-  switch (leds)
-  {
-  case 1:
-    digitalWrite(LED_1, HIGH);
-    digitalWrite(LED_2, LOW);
-    digitalWrite(LED_3, LOW);
-    digitalWrite(LED_4, LOW);
-    break;
-  case 2:
-    digitalWrite(LED_1, LOW);
-    digitalWrite(LED_2, HIGH);
-    digitalWrite(LED_3, LOW);
-    digitalWrite(LED_4, LOW);
-    break;
-  case 3:
-    digitalWrite(LED_1, LOW);
-    digitalWrite(LED_2, LOW);
-    digitalWrite(LED_3, HIGH);
-    digitalWrite(LED_4, LOW);
-    break;
-  case 4:
-    digitalWrite(LED_1, LOW);
-    digitalWrite(LED_2, LOW);
-    digitalWrite(LED_3, LOW);
-    digitalWrite(LED_4, HIGH);
-    break;
-  default:
-    digitalWrite(LED_1, LOW);
-    digitalWrite(LED_2, LOW);
-    digitalWrite(LED_3, LOW);
-    digitalWrite(LED_4, LOW);
-    break;
   }
 }
 
