@@ -35,7 +35,7 @@ struct Pattern
   constexpr Pattern() : start(0), length(0), color(CRGB::Black) {}
   constexpr Pattern(uint8_t s, uint8_t l, CRGB c) : start(s), length(l), color(c) {}
 
-  const void print()
+  void print() const
   {
     Serial.print("Pattern: { start: ");
     Serial.print(start);
@@ -85,15 +85,17 @@ void buttonLongPress()
 // led index (row, column)
 constexpr uint8_t ledIndex(uint8_t r, uint8_t c)
 {
-  return (r & 1) ? (r * COLS + (COLS - 1 - c)) : (r * COLS + c);
+  return (r & 1)
+             ? (r * COLS + (COLS - 1 - c)) // odd row: backward
+             : (r * COLS + c);             // even row: forward
 }
 
+// pass in the coords of the left corner of the line
 constexpr Pattern fromLine(uint8_t start_row, uint8_t start_column, uint8_t size, CRGB color)
 {
-  // FIXME: wrong!!!
   return (start_row & 1)
-             ? Pattern{ledIndex(start_row, start_column), size, color}         // forward (even row)
-             : Pattern{ledIndex(start_row, start_column) - size, size, color}; // backward (odd row)
+             ? Pattern{ledIndex(start_row, start_column) - size + 1, size, color} // backward (odd row)
+             : Pattern{ledIndex(start_row, start_column), size, color};           // forward (even row)
 }
 
 // intro text
@@ -182,10 +184,6 @@ void setup()
   fill_rainbow(leds, NUM_LEDS, 0, 255 / NUM_LEDS);
   FastLED.show();
   delay(1000);
-  // debug patterns
-  Serial.print("DEBUG: es:"); TEXT_ES.print();
-  Serial.print("DEBUG: ist:"); TEXT_IST.print();
-
 
   // display initial time
   DateTime now = rtc.now();
@@ -254,11 +252,6 @@ void setGridTime(uint8_t hour, uint8_t minute)
   // modify minute for easy handling
   uint8_t rest = minute % 5;
   minute = minute - rest; // round to 5
-
-  Serial.print("Rounded minute: ");
-  Serial.println(minute);
-  Serial.print("Rest: ");
-  Serial.println(rest);
 
   /*
   10:00 = ES IST ZEHN UHR
@@ -445,9 +438,9 @@ void setGridTime(uint8_t hour, uint8_t minute)
 
 void setText(Pattern pattern)
 {
-  Serial.print("setText: ");
-  pattern.print();
-  for (int i = pattern.start; i <= pattern.start + pattern.length; i++)
+  // Serial.print("setText: ");
+  // pattern.print();
+  for (int i = pattern.start; i < pattern.start + pattern.length; i++)
   {
     // Serial.print("Setting led ");
     // Serial.println(i);
