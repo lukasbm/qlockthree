@@ -201,6 +201,7 @@ void loop()
   // adjust night light if needed
   if (isNight(now))
   {
+    // TODO: i think this needs to be set every time before showing!
     FastLED.setBrightness(BRIGHTNESS_NIGHT);
   }
   else
@@ -214,7 +215,7 @@ void loop()
     setGridTime(now.hour(), now.minute());
     currMinUpdated = true;
   }
-  else
+  else if (now.second() > 0)
   {
     currMinUpdated = false;
   }
