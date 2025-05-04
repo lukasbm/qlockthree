@@ -35,14 +35,13 @@ struct Pattern
   constexpr Pattern() : start(0), length(0), color(CRGB::Black) {}
   constexpr Pattern(uint8_t s, uint8_t l, CRGB c) : start(s), length(l), color(c) {}
 
-  void print()
+  const void print()
   {
-    Serial.print("Pattern: ");
+    Serial.print("Pattern: { start: ");
     Serial.print(start);
-    Serial.print(", ");
+    Serial.print(", Length: ");
     Serial.print(length);
-    Serial.print(", ");
-    Serial.println(color.r);
+    Serial.println(" }");
   }
 };
 
@@ -91,6 +90,7 @@ constexpr uint8_t ledIndex(uint8_t r, uint8_t c)
 
 constexpr Pattern fromLine(uint8_t start_row, uint8_t start_column, uint8_t size, CRGB color)
 {
+  // FIXME: wrong!!!
   return (start_row & 1)
              ? Pattern{ledIndex(start_row, start_column), size, color}         // forward (even row)
              : Pattern{ledIndex(start_row, start_column) - size, size, color}; // backward (odd row)
@@ -153,7 +153,7 @@ void setup()
       delay(1000);
   }
   // check if there was a power loss since last rtc use
-  if (rtc.lostPower())
+  if (rtc.lostPower()) // FIXME: always triggers, but keeps the time correctly?
   {
     Serial.println("RTC lost power, let's set the time!");
   }
@@ -173,12 +173,21 @@ void setup()
   // "startup animation"
   FastLED.setBrightness(BRIGHTNESS_DAY);
   fill_solid(leds, NUM_LEDS, CRGB::Blue);
+  for (int i = 10; i < 100; i += 10)
+  {
+    leds[i] = CRGB::Red;
+  }
   FastLED.show();
   delay(1000);
   fill_rainbow(leds, NUM_LEDS, 0, 255 / NUM_LEDS);
   FastLED.show();
   delay(1000);
+  // debug patterns
+  Serial.print("DEBUG: es:"); TEXT_ES.print();
+  Serial.print("DEBUG: ist:"); TEXT_IST.print();
 
+
+  // display initial time
   DateTime now = rtc.now();
   setGridTime(now.hour(), now.minute());
 }
@@ -245,7 +254,7 @@ void setGridTime(uint8_t hour, uint8_t minute)
   // modify minute for easy handling
   uint8_t rest = minute % 5;
   minute = minute - rest; // round to 5
-  
+
   Serial.print("Rounded minute: ");
   Serial.println(minute);
   Serial.print("Rest: ");
@@ -342,10 +351,6 @@ void setGridTime(uint8_t hour, uint8_t minute)
     break;
   }
 
-  // inspect
-  currHour.print();
-  nextHour.print();
-
   setText(TEXT_ES);
   setText(TEXT_IST);
 
@@ -440,8 +445,12 @@ void setGridTime(uint8_t hour, uint8_t minute)
 
 void setText(Pattern pattern)
 {
-  for (uint8_t i = pattern.start; i < pattern.length; i++)
+  Serial.print("setText: ");
+  pattern.print();
+  for (int i = pattern.start; i <= pattern.start + pattern.length; i++)
   {
+    // Serial.print("Setting led ");
+    // Serial.println(i);
     leds[i] = pattern.color;
   }
 }
