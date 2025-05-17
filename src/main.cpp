@@ -21,7 +21,7 @@ CRGB leds[NUM_LEDS];
 // control button
 OneButton button;
 
-RTC_DS3231 rtc;
+RTC_DS3231 rtc; // uses i2c (sda = A4, scl = A5)
 
 bool currMinUpdated = false;
 
@@ -162,13 +162,14 @@ void setup()
 
   // setup button
   button.setup(
-      BTN_PIN,     // Input pin for the button
-      INPUT_PULLUP // INPUT and enable the internal pull-up resistor
+      BTN_PIN,      // Input pin for the button
+      INPUT_PULLUP, // INPUT and enable the internal pull-up resistor
+      true          // Active LOW (button pressed = LOW)
   );
   button.attachClick(buttonSingleClick);
   button.attachDoubleClick(buttonDoubleClick);
   button.attachDuringLongPress(buttonLongPress);
-  button.setLongPressIntervalMs(500); // frequency to fire long press function if long press is detected
+  button.setLongPressIntervalMs(250); // frequency to fire long press function if long press is detected
 
   Serial.println("Setup Complete");
 
