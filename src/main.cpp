@@ -53,7 +53,7 @@ enum Error
 // forward declarations
 void setGridTime(uint8_t, uint8_t);
 void setGridError(Error);
-bool isNight(DateTime);
+bool isNight(DateTime const &time);
 void setRTCtime(uint8_t, uint8_t);
 void setText(Pattern);
 
@@ -200,9 +200,9 @@ void loop()
   DateTime now = rtc.now();
 
   // adjust night light if needed
+  // TODO: add some gradual transition over 1 hour or so!
   if (isNight(now))
   {
-    // TODO: i think this needs to be set every time before showing!
     FastLED.setBrightness(BRIGHTNESS_NIGHT);
   }
   else
@@ -225,7 +225,7 @@ void loop()
   delay(10);
 }
 
-bool isNight(DateTime time)
+bool isNight(DateTime const &time)
 {
   if (time.hour() < 7 || time.hour() > 21)
   {
