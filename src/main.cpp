@@ -6,7 +6,7 @@
 
 #define STRIP_DATA_PIN 12
 #define COLOR_ORDER GRB
-#define BRIGHTNESS_DAY 45 // 0-255
+#define BRIGHTNESS_DAY 200 // 0-255
 #define BRIGHTNESS_NIGHT 5
 #define COLS 11
 #define ROWS 10
