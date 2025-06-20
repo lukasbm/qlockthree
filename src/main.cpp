@@ -4,14 +4,15 @@
 #include <OneButton.h>
 #include <Wire.h>
 
-#define STRIP_DATA_PIN 12
+#define STRIP_DATA_PIN 12 // D8
+#define LDR_PIN 22        // A7
 #define COLOR_ORDER GRB
-#define BRIGHTNESS_DAY 200 // 0-255
-#define BRIGHTNESS_NIGHT 5
+#define BRIGHTNESS_MAX 255
+#define BRIGHTNESS_MIN 1
 #define COLS 11
 #define ROWS 10
 #define NUM_LEDS (COLS * ROWS + 4)
-#define BTN_PIN 11
+#define BTN_PIN 11 // D7
 
 // use: https://fastled.io/docs/df/da2/group__lib8tion.html
 
@@ -56,6 +57,7 @@ void setGridError(Error);
 bool isNight(DateTime const &time);
 void setRTCtime(uint8_t, uint8_t);
 void setText(Pattern);
+int calcBrightness();
 
 void buttonSingleClick()
 {
@@ -112,6 +114,7 @@ const Pattern TEXT_HALB = fromLine(4, 0, 4, CRGB::White);
 const Pattern TEXT_UHR = fromLine(9, 8, 3, CRGB::White);
 // hours
 const Pattern TEXT_1 = fromLine(5, 0, 4, CRGB::White);
+const Pattern TEXT_1S = fromLine(5, 0, 3, CRGB::White); // just EIN (instead of EINS)
 const Pattern TEXT_2 = fromLine(5, 7, 4, CRGB::White);
 const Pattern TEXT_3 = fromLine(6, 0, 4, CRGB::White);
 const Pattern TEXT_4 = fromLine(6, 7, 4, CRGB::White);
@@ -138,13 +141,14 @@ void setup()
 {
   Serial.begin(9600);
   Wire.begin();
+  // the is no analogReadResolution, but it is 10 bit on this device
 
   Serial.println("Starting up...");
 
   // set up LED strip
   FastLED.addLeds<WS2812B, STRIP_DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setMaxPowerInMilliWatts(3500);
-  // show_at_max_brightness_for_power(); // automatically determines brightness (based on power setting)
+  FastLED.setBrightness(100);
 
   if (!rtc.begin(&Wire))
   {
@@ -174,7 +178,6 @@ void setup()
   Serial.println("Setup Complete");
 
   // "startup animation"
-  FastLED.setBrightness(BRIGHTNESS_DAY);
   fill_solid(leds, NUM_LEDS, CRGB::Blue);
   for (int i = 10; i < 100; i += 10)
   {
@@ -200,15 +203,7 @@ void loop()
   DateTime now = rtc.now();
 
   // adjust night light if needed
-  // TODO: add some gradual transition over 1 hour or so!
-  if (isNight(now))
-  {
-    FastLED.setBrightness(BRIGHTNESS_NIGHT);
-  }
-  else
-  {
-    FastLED.setBrightness(BRIGHTNESS_DAY);
-  }
+  FastLED.setBrightness(calcBrightness());
 
   // update time
   if (now.second() == 0 && !currMinUpdated)
@@ -223,6 +218,20 @@ void loop()
 
   // call multiple times a second to make sure we dont miss the minute increase
   delay(10);
+}
+
+int calcBrightness()
+{
+  // instead of isNight use the photoresistor
+  int val = analogRead(LDR_PIN);
+  // map to brightness range:
+  // < 50  pitch black (darkest)
+  // ~ 300 ambient light
+  // ~ 650 room light
+  // >1000 flash light (brightest)
+  val = map(val, 50, 900, BRIGHTNESS_MIN, BRIGHTNESS_MAX); // 10 bit ADC (1024 values)
+  val = constrain(val, BRIGHTNESS_MIN, BRIGHTNESS_MAX); // constraint it as val might be negative (due to non-zero lower map bound)
+  return val;  // FIXME: does it need another round of remapping?
 }
 
 bool isNight(DateTime const &time)
@@ -281,7 +290,7 @@ void setGridTime(uint8_t hour, uint8_t minute)
 
   case 1:
   case 13:
-    currHour = TEXT_1;
+    currHour = minute == 0 ? TEXT_1S : TEXT_1; // edge case for 1 o'clock, use EIN instead of EINS
     nextHour = TEXT_2;
     break;
 
