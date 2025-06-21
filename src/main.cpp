@@ -4,15 +4,15 @@
 #include <OneButton.h>
 #include <Wire.h>
 
-#define STRIP_DATA_PIN 12 // D8
-#define LDR_PIN 22        // A7
+#define STRIP_DATA_PIN 12 // D12
+#define LDR_PIN A2        // A2
 #define COLOR_ORDER GRB
 #define BRIGHTNESS_MAX 255
 #define BRIGHTNESS_MIN 1
 #define COLS 11
 #define ROWS 10
 #define NUM_LEDS (COLS * ROWS + 4)
-#define BTN_PIN 11 // D7
+#define BTN_PIN 11 // D11
 
 // use: https://fastled.io/docs/df/da2/group__lib8tion.html
 
@@ -35,15 +35,6 @@ struct Pattern
   // need constructor for constexpr
   constexpr Pattern() : start(0), length(0), color(CRGB::Black) {}
   constexpr Pattern(uint8_t s, uint8_t l, CRGB c) : start(s), length(l), color(c) {}
-
-  void print() const
-  {
-    Serial.print("Pattern: { start: ");
-    Serial.print(start);
-    Serial.print(", Length: ");
-    Serial.print(length);
-    Serial.println(" }");
-  }
 };
 
 enum Error
@@ -57,7 +48,7 @@ void setGridError(Error);
 bool isNight(DateTime const &time);
 void setRTCtime(uint8_t, uint8_t);
 void setText(Pattern);
-int calcBrightness();
+int brightness_calc_next();
 
 void buttonSingleClick()
 {
@@ -203,7 +194,9 @@ void loop()
   DateTime now = rtc.now();
 
   // adjust night light if needed
-  FastLED.setBrightness(calcBrightness());
+  int bright = brightness_calc_next();
+  FastLED.setBrightness(bright);
+  FastLED.show(); // need to call show to apply brightness change
 
   // update time
   if (now.second() == 0 && !currMinUpdated)
@@ -220,18 +213,31 @@ void loop()
   delay(10);
 }
 
-int calcBrightness()
+static inline int brightness_map(int const &reading)
 {
-  // instead of isNight use the photoresistor
+  int bright = (reading / 40) * (reading / 40) + 2;
+  return constrain(bright, BRIGHTNESS_MIN, BRIGHTNESS_MAX);
+}
+
+// has smoothing included to avoid flickering
+int brightness_calc_next()
+{
+  static const int BRIGHTNESS_HISTORY = 10;                 // number of past brightness values to consider
+  static int brightness_values[BRIGHTNESS_HISTORY] = {100}; // array to store past brightness values
+  static short brightness_index = 0;                        // index for the brightness array
+
   int val = analogRead(LDR_PIN);
-  // map to brightness range:
-  // < 50  pitch black (darkest)
-  // ~ 300 ambient light
-  // ~ 650 room light
-  // >1000 flash light (brightest)
-  val = map(val, 50, 900, BRIGHTNESS_MIN, BRIGHTNESS_MAX); // 10 bit ADC (1024 values)
-  val = constrain(val, BRIGHTNESS_MIN, BRIGHTNESS_MAX); // constraint it as val might be negative (due to non-zero lower map bound)
-  return val;  // FIXME: does it need another round of remapping?
+  int b = brightness_map(val);
+  // store the brightness value in the array
+  brightness_values[brightness_index] = b;
+  brightness_index = (brightness_index + 1) % BRIGHTNESS_HISTORY;
+  // calculate the average of the last brightness values
+  int sum = 0;
+  for (int i = 0; i < BRIGHTNESS_HISTORY; i++)
+  {
+    sum += brightness_values[i];
+  }
+  return sum / BRIGHTNESS_HISTORY;
 }
 
 bool isNight(DateTime const &time)
@@ -449,12 +455,8 @@ void setGridTime(uint8_t hour, uint8_t minute)
 
 void setText(Pattern pattern)
 {
-  // Serial.print("setText: ");
-  // pattern.print();
   for (int i = pattern.start; i < pattern.start + pattern.length; i++)
   {
-    // Serial.print("Setting led ");
-    // Serial.println(i);
     leds[i] = pattern.color;
   }
 }
