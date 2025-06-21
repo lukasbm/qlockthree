@@ -187,6 +187,8 @@ void setup()
 
 void loop()
 {
+  static short bright_skipper = 0;
+
   // update buttons
   button.tick();
 
@@ -194,9 +196,13 @@ void loop()
   DateTime now = rtc.now();
 
   // adjust night light if needed
-  int bright = brightness_calc_next();
-  FastLED.setBrightness(bright);
-  FastLED.show(); // need to call show to apply brightness change
+  if (bright_skipper++ > 100)
+  {
+    int bright = brightness_calc_next();
+    FastLED.setBrightness(bright);
+    FastLED.show(); // need to call show to apply brightness change
+    bright_skipper = 0;
+  }
 
   // update time
   if (now.second() == 0 && !currMinUpdated)
